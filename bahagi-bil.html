@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bahagi Bil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --counter: #17222a;
+    --counter-2: #0f171d;
+    --paper: #f4ecda;
+    --paper-2: #ece2cb;
+    --ink: #2a2620;
+    --ink-soft: #6b6252;
+    --line: #cfc3a4;
+    --duit: #3f6b4c;
+    --stamp: #b8462f;
+    --stamp-soft: #b8462f22;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #1d2c35 0%, var(--counter) 55%, var(--counter-2) 100%);
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    padding:48px 16px 80px;
+    display:flex;
+    justify-content:center;
+  }
+  .wrap{width:100%;max-width:440px;}
+
+  .zigzag{width:100%;height:10px;display:block;}
+  .zigzag path{fill:var(--paper);}
+
+  .receipt{
+    background:var(--paper);
+    background-image: linear-gradient(var(--paper-2) 1px, transparent 1px);
+    background-size: 100% 34px;
+    padding:6px 26px 20px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.03);
+  }
+
+  .head{text-align:center;padding:18px 0 12px;}
+  .head .store{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:0.5px;
+    margin:0;
+  }
+  .head .tagline{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin:4px 0 0;
+    letter-spacing:0.3px;
+  }
+
+  .dotted{
+    border:none;
+    border-top:2px dashed var(--line);
+    margin:14px 0;
+  }
+
+  .sect-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--ink-soft);
+    margin:0 0 10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sect-label::after{
+    content:"";
+    flex:1;
+    border-top:1px dotted var(--line);
+  }
+
+  .charges{display:flex;flex-direction:column;gap:9px;margin-bottom:2px;}
+  .charge-row{display:flex;align-items:center;gap:9px;}
+  .charge-row .toggle{
+    width:16px;height:16px;accent-color:var(--duit);flex-shrink:0;cursor:pointer;
+  }
+  .charge-row .charge-label{
+    flex:0 0 100px;width:100px;
+    font-size:11px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;
+    line-height:1.3;
+  }
+  .charge-row .charge-input-wrap{
+    flex:1;display:flex;align-items:center;min-width:0;
+    border:1px solid var(--line);background:#fffdf7;border-radius:3px;
+    transition:opacity 0.15s;
+  }
+  .charge-row .charge-input-wrap:focus-within{outline:2px solid var(--duit);outline-offset:1px;}
+  .charge-row.off .charge-label{color:var(--ink-soft);opacity:0.55;}
+  .charge-row.off .charge-input-wrap{opacity:0.4;}
+  .charge-row input[type="number"]{
+    flex:1;width:100%;min-width:0;border:none;background:transparent;
+    padding:9px 8px;font-family:'IBM Plex Mono',monospace;font-size:14px;
+    color:var(--ink);
+  }
+  .charge-row input[type="number"]:focus{outline:none;}
+  .charge-row .unit{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft);
+    padding:0 10px;flex-shrink:0;
+  }
+  .charge-row .unit.left{padding:0 0 0 10px;}
+  .charge-row .unit.right{padding:0 10px 0 0;}
+
+  .check-field{margin-top:10px;}
+  .check-field label{
+    font-size:11px;color:var(--ink-soft);display:block;margin-bottom:5px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .check-field .amt-wrap{
+    display:flex;align-items:center;
+    border:1px solid var(--line);background:#fffdf7;border-radius:3px;
+  }
+  .check-field .amt-wrap:focus-within{outline:2px solid var(--duit);outline-offset:1px;}
+  .check-field .amt-sign{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft);
+    padding-left:10px;flex-shrink:0;
+  }
+  .check-field input{
+    flex:1;width:100%;min-width:0;padding:9px 10px 9px 6px;border:none;
+    background:transparent;font-family:'IBM Plex Mono',monospace;font-size:14px;
+    color:var(--ink);
+  }
+  .check-field input:focus{outline:none;}
+
+  .round-field{
+    display:flex;align-items:center;gap:8px;margin-top:12px;
+  }
+  .round-field input[type="checkbox"]{
+    width:15px;height:15px;accent-color:var(--duit);flex-shrink:0;
+  }
+  .round-field label{
+    font-size:11.5px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;
+    line-height:1.4;
+  }
+
+  .people{display:flex;flex-direction:column;gap:14px;}
+
+  .person{
+    border:1px solid var(--line);
+    background:rgba(255,253,247,0.5);
+    border-radius:4px;
+    padding:12px 12px 10px;
+  }
+  .person-head{
+    display:flex;align-items:center;gap:8px;margin-bottom:9px;
+  }
+  .person-head .tag{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--ink-soft);
+    width:18px;flex-shrink:0;
+  }
+  .person-head input.pname{
+    flex:1;
+    border:none;background:transparent;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;font-size:15.5px;color:var(--ink);
+    padding:2px 2px 4px;
+    border-bottom:1px solid transparent;
+  }
+  .person-head input.pname:focus{outline:none;border-bottom:1px solid var(--duit);}
+  .person-head .rm-person{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;
+    font-size:16px;line-height:1;padding:2px 4px;
+  }
+  .person-head .rm-person:hover{color:var(--stamp);}
+
+  .item-row{
+    display:flex;flex-direction:column;gap:4px;margin-bottom:6px;
+  }
+  .item-row .iline{
+    display:flex;align-items:center;gap:8px;
+  }
+  .item-row input.idesc{
+    flex:1;width:100%;border:1px dashed var(--line);background:#fffdf7;
+    padding:6px 8px;font-size:12.5px;font-family:'Inter',sans-serif;
+    border-radius:3px;color:var(--ink);
+  }
+  .item-row input.idesc:focus{outline:none;border-color:var(--duit);}
+  .item-row .amt-wrap{
+    flex:1;display:flex;align-items:center;
+    border:1px dashed var(--line);background:#fffdf7;border-radius:3px;
+  }
+  .item-row .amt-wrap:focus-within{border-color:var(--duit);}
+  .item-row .amt-wrap .cs{
+    font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;
+    padding-left:8px;flex-shrink:0;
+  }
+  .item-row input.iprice{
+    flex:1;width:100%;min-width:0;border:none;background:transparent;
+    padding:6px 8px 6px 4px;font-size:13px;
+    font-family:'IBM Plex Mono',monospace;color:var(--ink);
+  }
+  .item-row input.iprice:focus{outline:none;}
+  .item-row .rm-item{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;
+    font-size:14px;padding:2px 3px;flex-shrink:0;
+  }
+  .item-row .rm-item:hover{color:var(--stamp);}
+  .item-row .add-note{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;
+    font-size:10.5px;font-family:'IBM Plex Mono',monospace;
+    padding:0 0 1px;
+    text-decoration:underline dotted;
+    text-align:left;
+    align-self:flex-start;
+  }
+  .item-row .add-note:hover{color:var(--duit);}
+
+  .add-item{
+    background:none;border:none;color:var(--duit);cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    padding:4px 0 0;letter-spacing:0.3px;
+  }
+  .add-item:hover{text-decoration:underline;}
+
+  .add-person{
+    width:100%;
+    margin-top:4px;
+    padding:10px;
+    border:1.5px dashed var(--ink-soft);
+    background:transparent;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    letter-spacing:0.5px;
+    border-radius:4px;
+    cursor:pointer;
+  }
+  .add-person:hover{border-color:var(--duit);color:var(--duit);}
+
+  .grand-check{
+    margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    display:flex;justify-content:space-between;color:var(--ink-soft);
+  }
+  .grand-check.match{color:var(--duit);}
+  .grand-check.mismatch{color:var(--stamp);}
+
+  .results{margin-top:4px;}
+  .rperson{
+    padding:12px 0;
+    border-bottom:1px dotted var(--line);
+  }
+  .rperson:last-child{border-bottom:none;}
+  .rperson-name{
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;
+    margin:0 0 8px;
+  }
+  .rline{
+    display:flex;justify-content:space-between;
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;
+    color:var(--ink-soft);
+    padding:2px 0;
+  }
+  .rline .amt{color:var(--ink);}
+  .rline.sub{color:var(--ink-soft);}
+  .rline.total{
+    margin-top:6px;padding-top:7px;
+    border-top:1px solid var(--line);
+    font-size:14.5px;color:var(--ink);font-weight:600;
+  }
+  .rline.total .amt{color:var(--stamp);}
+  .rline.round-note{
+    font-size:11px;font-style:normal;color:var(--ink-soft);
+  }
+  .rline.round-note .amt{color:var(--ink-soft);}
+
+  .grand-total{
+    margin-top:16px;padding-top:14px;border-top:2px solid var(--ink);
+    display:flex;justify-content:space-between;align-items:baseline;
+  }
+  .grand-total .label{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;
+    text-transform:uppercase;letter-spacing:1.5px;color:var(--ink-soft);
+  }
+  .grand-total .amt{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;
+    color:var(--stamp);
+  }
+
+  .foot-note{
+    text-align:center;color:var(--ink-soft);font-size:10.5px;
+    margin-top:16px;line-height:1.5;font-family:'IBM Plex Mono',monospace;
+    padding:0 6px;
+  }
+
+  .empty-hint{
+    text-align:center;color:var(--ink-soft);font-size:12px;
+    padding:18px 0 4px;font-family:'IBM Plex Mono',monospace;
+  }
+
+  @media (max-width:380px){
+    body{padding:28px 8px 60px;}
+    .receipt{padding:6px 16px 18px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none">
+    <path d="M0,6 L0,3 L2.5,0 L5,3 L7.5,0 L10,3 L12.5,0 L15,3 L17.5,0 L20,3 L22.5,0 L25,3 L27.5,0 L30,3 L32.5,0 L35,3 L37.5,0 L40,3 L42.5,0 L45,3 L47.5,0 L50,3 L52.5,0 L55,3 L57.5,0 L60,3 L62.5,0 L65,3 L67.5,0 L70,3 L72.5,0 L75,3 L77.5,0 L80,3 L82.5,0 L85,3 L87.5,0 L90,3 L92.5,0 L95,3 L97.5,0 L100,3 L100,6 Z"/>
+  </svg>
+
+  <div class="receipt">
+    <div class="head">
+      <p class="store">BAHAGI BIL</p>
+      <p class="tagline">kira bahagian, bukan pergaduhan</p>
+    </div>
+    <hr class="dotted">
+
+    <p class="sect-label">Caj bil</p>
+    <div class="charges">
+      <div class="charge-row" id="taxRow">
+        <input class="toggle" id="taxEnable" type="checkbox" checked>
+        <span class="charge-label">Cukai perkhidmatan</span>
+        <div class="charge-input-wrap">
+          <input id="taxRate" type="number" inputmode="decimal" value="6" step="0.1" min="0">
+          <span class="unit right">%</span>
+        </div>
+      </div>
+      <div class="charge-row" id="scRow">
+        <input class="toggle" id="scEnable" type="checkbox" checked>
+        <span class="charge-label">Caj perkhidmatan</span>
+        <div class="charge-input-wrap">
+          <input id="scRate" type="number" inputmode="decimal" value="10" step="0.1" min="0">
+          <span class="unit right">%</span>
+        </div>
+      </div>
+      <div class="charge-row off" id="deliveryRow">
+        <input class="toggle" id="deliveryEnable" type="checkbox">
+        <span class="charge-label">Fee penghantaran</span>
+        <div class="charge-input-wrap">
+          <span class="unit left">RM</span>
+          <input id="deliveryFee" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" disabled>
+        </div>
+      </div>
+    </div>
+    <div class="check-field">
+      <label for="billCheck">Jumlah dalam resit (untuk semak, tak wajib)</label>
+      <div class="amt-wrap">
+        <span class="amt-sign">RM</span>
+        <input id="billCheck" type="number" inputmode="decimal" placeholder="cth. 100" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="round-field">
+      <input id="roundToggle" type="checkbox" checked>
+      <label for="roundToggle">Bundarkan jumlah setiap orang ke 5 sen terdekat</label>
+    </div>
+
+    <hr class="dotted">
+    <p class="sect-label">Siapa makan apa</p>
+    <div class="people" id="peopleList"></div>
+    <button class="add-person" id="addPersonBtn" type="button">+ TAMBAH ORANG</button>
+
+    <div class="grand-check" id="grandCheck"></div>
+
+    <hr class="dotted">
+    <p class="sect-label">Bahagian setiap orang</p>
+    <div class="results" id="results"></div>
+
+    <div class="grand-total">
+      <span class="label">Jumlah semua</span>
+      <span class="amt" id="grandAmt">RM0.00</span>
+    </div>
+
+    <p class="foot-note">Cukai &amp; caj perkhidmatan dibahagi ikut nisbah makanan setiap orang, manakala fee penghantaran dibahagi sama rata. Boleh matikan mana-mana caj yang tiada dalam bil anda.</p>
+  </div>
+
+  <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none" style="transform:rotate(180deg)">
+    <path d="M0,6 L0,3 L2.5,0 L5,3 L7.5,0 L10,3 L12.5,0 L15,3 L17.5,0 L20,3 L22.5,0 L25,3 L27.5,0 L30,3 L32.5,0 L35,3 L37.5,0 L40,3 L42.5,0 L45,3 L47.5,0 L50,3 L52.5,0 L55,3 L57.5,0 L60,3 L62.5,0 L65,3 L67.5,0 L70,3 L72.5,0 L75,3 L77.5,0 L80,3 L82.5,0 L85,3 L87.5,0 L90,3 L92.5,0 L95,3 L97.5,0 L100,3 L100,6 Z"/>
+  </svg>
+</div>
+
+<script>
+let people = [];
+let personSeq = 0;
+let itemSeq = 0;
+
+function newPerson(name){
+  personSeq++;
+  return {
+    id:'p'+personSeq,
+    name: name || ('Orang '+personSeq),
+    items:[ newItem() ]
+  };
+}
+function newItem(){
+  itemSeq++;
+  return {id:'i'+itemSeq, desc:'', price:'', showDesc:false};
+}
+
+function init(){
+  people = [newPerson('Orang 1'), newPerson('Orang 2'), newPerson('Orang 3')];
+  render();
+}
+
+function fmt(n){
+  return 'RM' + n.toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function render(){
+  renderPeople();
+  renderResults();
+}
+
+function renderPeople(){
+  const list = document.getElementById('peopleList');
+  list.innerHTML = '';
+  people.forEach((p, idx) => {
+    const div = document.createElement('div');
+    div.className = 'person';
+    div.dataset.pid = p.id;
+
+    const head = document.createElement('div');
+    head.className = 'person-head';
+    head.innerHTML = `
+      <span class="tag">${String(idx+1).padStart(2,'0')}</span>
+      <input class="pname" type="text" value="${escapeHtml(p.name)}" placeholder="Nama">
+      <button class="rm-person" type="button" title="Buang orang ini" ${people.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
+    `;
+    div.appendChild(head);
+
+    p.items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.dataset.iid = item.id;
+      const showDesc = item.showDesc || !!item.desc;
+      row.innerHTML = `
+        ${showDesc
+          ? `<input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}">`
+          : `<button class="add-note" type="button">+ nama makanan</button>`}
+        <div class="iline">
+          <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
+          <button class="rm-item" type="button" title="Buang item" ${p.items.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
+        </div>
+      `;
+      div.appendChild(row);
+    });
+
+    const addItemBtn = document.createElement('button');
+    addItemBtn.className = 'add-item';
+    addItemBtn.type = 'button';
+    addItemBtn.textContent = '+ tambah makanan';
+    div.appendChild(addItemBtn);
+
+    list.appendChild(div);
+
+    // events
+    head.querySelector('.pname').addEventListener('input', e => {
+      p.name = e.target.value;
+      renderResults();
+    });
+    head.querySelector('.rm-person').addEventListener('click', () => {
+      if(people.length<=1) return;
+      people = people.filter(x => x.id !== p.id);
+      render();
+    });
+    addItemBtn.addEventListener('click', () => {
+      p.items.push(newItem());
+      render();
+    });
+    div.querySelectorAll('.item-row').forEach(rowEl => {
+      const iid = rowEl.dataset.iid;
+      const item = p.items.find(x => x.id === iid);
+      const descEl = rowEl.querySelector('.idesc');
+      if(descEl){
+        descEl.addEventListener('input', e => {
+          item.desc = e.target.value;
+          renderResults();
+        });
+      }
+      rowEl.querySelector('.iprice').addEventListener('input', e => {
+        item.price = e.target.value;
+        renderResults();
+      });
+      rowEl.querySelector('.rm-item').addEventListener('click', () => {
+        if(p.items.length<=1) return;
+        p.items = p.items.filter(x => x.id !== iid);
+        render();
+      });
+      const addNoteBtn = rowEl.querySelector('.add-note');
+      if(addNoteBtn){
+        addNoteBtn.addEventListener('click', () => {
+          item.showDesc = true;
+          render();
+        });
+      }
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function computeTotals(){
+  const taxEnabled = document.getElementById('taxEnable').checked;
+  const scEnabled = document.getElementById('scEnable').checked;
+  const deliveryEnabled = document.getElementById('deliveryEnable').checked;
+
+  const taxRate = taxEnabled ? (parseFloat(document.getElementById('taxRate').value) || 0) : 0;
+  const scRate = scEnabled ? (parseFloat(document.getElementById('scRate').value) || 0) : 0;
+  const deliveryFee = deliveryEnabled ? (parseFloat(document.getElementById('deliveryFee').value) || 0) : 0;
+
+  const perPerson = people.map(p => {
+    const subtotal = p.items.reduce((s,it) => s + (parseFloat(it.price)||0), 0);
+    return {id:p.id, name:p.name || 'Tanpa nama', subtotal, items:p.items};
+  });
+  const grandSubtotal = perPerson.reduce((s,p)=>s+p.subtotal,0);
+  const peopleCount = perPerson.length || 1;
+  const deliveryPerPerson = deliveryFee / peopleCount;
+
+  const results = perPerson.map(p => {
+    const share = grandSubtotal > 0 ? p.subtotal / grandSubtotal : 0;
+    const taxAmt = grandSubtotal * (taxRate/100) * share;
+    const scAmt = grandSubtotal * (scRate/100) * share;
+    return {
+      ...p,
+      share,
+      taxAmt,
+      scAmt,
+      deliveryAmt: deliveryPerPerson,
+      total: p.subtotal + taxAmt + scAmt + deliveryPerPerson
+    };
+  });
+
+  const grandTax = grandSubtotal * (taxRate/100);
+  const grandSc = grandSubtotal * (scRate/100);
+  const grandTotal = grandSubtotal + grandTax + grandSc + deliveryFee;
+
+  return {results, grandSubtotal, grandTax, grandSc, deliveryFee, grandTotal, taxRate, scRate, taxEnabled, scEnabled, deliveryEnabled};
+}
+
+function roundToNearest5Sen(n){
+  return Math.round(n * 20) / 20;
+}
+
+function renderResults(){
+  const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
+  const resDiv = document.getElementById('results');
+  const doRound = document.getElementById('roundToggle').checked;
+
+  let displayedGrandTotal = grandTotal;
+
+  if(grandSubtotal <= 0){
+    resDiv.innerHTML = '<p class="empty-hint">Masukkan harga makanan setiap orang dulu.</p>';
+  } else {
+    resDiv.innerHTML = '';
+    let roundedSum = 0;
+    results.forEach(r => {
+      const roundedTotal = doRound ? roundToNearest5Sen(r.total) : r.total;
+      roundedSum += roundedTotal;
+      const roundDiff = roundedTotal - r.total;
+
+      const block = document.createElement('div');
+      block.className = 'rperson';
+      block.innerHTML = `
+        <p class="rperson-name">${escapeHtml(r.name || 'Tanpa nama')}</p>
+        <div class="rline sub"><span>Makanan (${(r.share*100).toFixed(1)}%)</span><span class="amt">${fmt(r.subtotal)}</span></div>
+        ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
+        ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
+        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran (sama rata)</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
+        ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
+        <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
+      `;
+      resDiv.appendChild(block);
+    });
+    displayedGrandTotal = doRound ? roundedSum : grandTotal;
+  }
+
+  document.getElementById('grandAmt').textContent = fmt(displayedGrandTotal);
+
+  const checkVal = parseFloat(document.getElementById('billCheck').value);
+  const checkDiv = document.getElementById('grandCheck');
+  if(!isNaN(checkVal) && checkVal > 0){
+    const diff = grandTotal - checkVal;
+    if(Math.abs(diff) < 0.05){
+      checkDiv.className = 'grand-check match';
+      checkDiv.innerHTML = `<span>Sepadan dengan resit</span><span>${fmt(grandTotal)}</span>`;
+    } else {
+      checkDiv.className = 'grand-check mismatch';
+      const sign = diff > 0 ? '+' : '-';
+      checkDiv.innerHTML = `<span>Beza dengan resit</span><span>${sign}${fmt(Math.abs(diff))}</span>`;
+    }
+  } else {
+    checkDiv.className = 'grand-check';
+    checkDiv.innerHTML = '';
+  }
+}
+
+document.getElementById('addPersonBtn').addEventListener('click', () => {
+  people.push(newPerson());
+  render();
+});
+document.getElementById('taxRate').addEventListener('input', renderResults);
+document.getElementById('scRate').addEventListener('input', renderResults);
+document.getElementById('deliveryFee').addEventListener('input', renderResults);
+document.getElementById('billCheck').addEventListener('input', renderResults);
+document.getElementById('roundToggle').addEventListener('change', renderResults);
+
+function setupChargeToggle(checkboxId, rowId, inputId){
+  const checkbox = document.getElementById(checkboxId);
+  const row = document.getElementById(rowId);
+  const input = document.getElementById(inputId);
+  checkbox.addEventListener('change', () => {
+    input.disabled = !checkbox.checked;
+    row.classList.toggle('off', !checkbox.checked);
+    renderResults();
+  });
+}
+setupChargeToggle('taxEnable', 'taxRow', 'taxRate');
+setupChargeToggle('scEnable', 'scRow', 'scRate');
+setupChargeToggle('deliveryEnable', 'deliveryRow', 'deliveryFee');
+
+init();
+</script>
+</body>
+</html>
