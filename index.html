@@ -217,6 +217,15 @@
     align-self:flex-start;
   }
   .item-row .add-note:hover{color:var(--duit);}
+  .item-row .desc-line{
+    display:flex;align-items:center;gap:6px;
+  }
+  .item-row .desc-line input.idesc{flex:1;}
+  .item-row .close-note{
+    background:none;border:none;color:var(--ink-soft);cursor:pointer;
+    font-size:13px;padding:2px 3px;flex-shrink:0;
+  }
+  .item-row .close-note:hover{color:var(--stamp);}
 
   .add-item{
     background:none;border:none;color:var(--duit);cursor:pointer;
@@ -315,7 +324,7 @@
   <div class="receipt">
     <div class="head">
       <p class="store">BAHAGI BIL</p>
-      <p class="tagline">kira bahagian, bukan pergaduhan</p>
+      <p class="tagline">Kira bahagian, bukan pergaduhan</p>
     </div>
     <hr class="dotted">
 
@@ -350,7 +359,7 @@
       <label for="billCheck">Jumlah dalam resit (untuk semak, tak wajib)</label>
       <div class="amt-wrap">
         <span class="amt-sign">RM</span>
-        <input id="billCheck" type="number" inputmode="decimal" placeholder="cth. 100" step="0.01" min="0">
+        <input id="billCheck" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
       </div>
     </div>
     <div class="round-field">
@@ -438,8 +447,8 @@ function renderPeople(){
       const showDesc = item.showDesc || !!item.desc;
       row.innerHTML = `
         ${showDesc
-          ? `<input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}">`
-          : `<button class="add-note" type="button">+ nama makanan</button>`}
+          ? `<div class="desc-line"><input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
+          : `<button class="add-note" type="button">+ nama makanan/minuman</button>`}
         <div class="iline">
           <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
           <button class="rm-item" type="button" title="Buang item" ${p.items.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
@@ -451,7 +460,7 @@ function renderPeople(){
     const addItemBtn = document.createElement('button');
     addItemBtn.className = 'add-item';
     addItemBtn.type = 'button';
-    addItemBtn.textContent = '+ tambah makanan';
+    addItemBtn.textContent = '+ tambah makanan/minuman';
     div.appendChild(addItemBtn);
 
     list.appendChild(div);
@@ -493,6 +502,14 @@ function renderPeople(){
       if(addNoteBtn){
         addNoteBtn.addEventListener('click', () => {
           item.showDesc = true;
+          render();
+        });
+      }
+      const closeNoteBtn = rowEl.querySelector('.close-note');
+      if(closeNoteBtn){
+        closeNoteBtn.addEventListener('click', () => {
+          item.showDesc = false;
+          item.desc = '';
           render();
         });
       }
@@ -563,14 +580,21 @@ function renderResults(){
       roundedSum += roundedTotal;
       const roundDiff = roundedTotal - r.total;
 
+      const itemLines = (r.items || [])
+        .filter(it => (parseFloat(it.price)||0) > 0 || (it.desc && it.desc.trim()))
+        .map(it => {
+          const label = (it.desc && it.desc.trim()) ? it.desc.trim() : 'Makanan/Minuman';
+          return `<div class="rline sub"><span>${escapeHtml(label)}</span><span class="amt">${fmt(parseFloat(it.price)||0)}</span></div>`;
+        }).join('');
+
       const block = document.createElement('div');
       block.className = 'rperson';
       block.innerHTML = `
         <p class="rperson-name">${escapeHtml(r.name || 'Tanpa nama')}</p>
-        <div class="rline sub"><span>Makanan (${(r.share*100).toFixed(1)}%)</span><span class="amt">${fmt(r.subtotal)}</span></div>
+        ${itemLines}
         ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
         ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
-        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran (sama rata)</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
+        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
         ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
         <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
       `;
