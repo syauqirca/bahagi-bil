@@ -310,7 +310,7 @@
   <div class="receipt">
     <div class="head">
       <p class="store">BAHAGI BIL</p>
-      <p class="tagline">kira bahagian, bukan pergaduhan</p>
+      <p class="tagline">Kira bahagian, bukan pergaduhan</p>
     </div>
     <hr class="dotted">
 
@@ -424,7 +424,7 @@ function renderPeople(){
       row.innerHTML = `
         ${showDesc
           ? `<input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}">`
-          : `<button class="add-note" type="button">+ nama makanan</button>`}
+          : `<button class="add-note" type="button">+ Nama makanan/minuman</button>`}
         <div class="iline">
           <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
           <button class="rm-item" type="button" title="Buang item" ${p.items.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
@@ -436,7 +436,7 @@ function renderPeople(){
     const addItemBtn = document.createElement('button');
     addItemBtn.className = 'add-item';
     addItemBtn.type = 'button';
-    addItemBtn.textContent = '+ tambah makanan';
+    addItemBtn.textContent = '+ Tambah makanan/minuman';
     div.appendChild(addItemBtn);
 
     list.appendChild(div);
