@@ -325,8 +325,11 @@
 
   .foot-note{
     text-align:center;color:var(--ink-soft);font-size:10.5px;
-    margin-top:16px;line-height:1.5;font-family:'IBM Plex Mono',monospace;
+    margin-top:16px;line-height:1.6;font-family:'IBM Plex Mono',monospace;
     padding:0 6px;
+  }
+  .foot-note .foot-link{
+    color:var(--duit);font-weight:600;
   }
 
   .share-btn{
@@ -788,6 +791,14 @@ setupModeSwitch('taxModeSwitch', 'taxRate', 'taxRmPrefix', '6', m => { taxMode =
 setupModeSwitch('scModeSwitch', 'scRate', 'scRmPrefix', '10', m => { scMode = m; });
 
 const ZIGZAG_PATH = 'M0,6 L0,3 L2.5,0 L5,3 L7.5,0 L10,3 L12.5,0 L15,3 L17.5,0 L20,3 L22.5,0 L25,3 L27.5,0 L30,3 L32.5,0 L35,3 L37.5,0 L40,3 L42.5,0 L45,3 L47.5,0 L50,3 L52.5,0 L55,3 L57.5,0 L60,3 L62.5,0 L65,3 L67.5,0 L70,3 L72.5,0 L75,3 L77.5,0 L80,3 L82.5,0 L85,3 L87.5,0 L90,3 L92.5,0 L95,3 L97.5,0 L100,3 L100,6 Z';
+const ZIGZAG_PATH_FLIPPED = 'M0,0 L0,3 L2.5,6 L5,3 L7.5,6 L10,3 L12.5,6 L15,3 L17.5,6 L20,3 L22.5,6 L25,3 L27.5,6 L30,3 L32.5,6 L35,3 L37.5,6 L40,3 L42.5,6 L45,3 L47.5,6 L50,3 L52.5,6 L55,3 L57.5,6 L60,3 L62.5,6 L65,3 L67.5,6 L70,3 L72.5,6 L75,3 L77.5,6 L80,3 L82.5,6 L85,3 L87.5,6 L90,3 L92.5,6 L95,3 L97.5,6 L100,3 L100,0 Z';
+
+function formatDateDDMMYYYY(d){
+  const day = String(d.getDate()).padStart(2,'0');
+  const month = String(d.getMonth()+1).padStart(2,'0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
 
 function buildShareReceiptHTML(){
   const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
@@ -803,7 +814,7 @@ function buildShareReceiptHTML(){
     displayedGrandTotal = doRound ? roundedSum : grandTotal;
   }
 
-  const dateStr = new Date().toLocaleDateString('ms-MY', {day:'numeric', month:'short', year:'numeric'});
+  const dateStr = formatDateDDMMYYYY(new Date());
 
   return `
     <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none"><path d="${ZIGZAG_PATH}"/></svg>
@@ -819,9 +830,9 @@ function buildShareReceiptHTML(){
         <span class="label">Jumlah semua</span>
         <span class="amt">${fmt(displayedGrandTotal)}</span>
       </div>
-      <p class="foot-note">Dijana melalui Bahagi Bil &middot; ${dateStr}</p>
+      <p class="foot-note">Dijana melalui<br><span class="foot-link">syauqirca.github.io/bahagi-bil</span><br>${dateStr}</p>
     </div>
-    <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none" style="transform:rotate(180deg)"><path d="${ZIGZAG_PATH}"/></svg>
+    <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none"><path d="${ZIGZAG_PATH_FLIPPED}"/></svg>
   `;
 }
 
