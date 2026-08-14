@@ -100,12 +100,25 @@
   .charge-row .charge-input-wrap:focus-within{outline:2px solid var(--duit);outline-offset:1px;}
   .charge-row.off .charge-label{color:var(--ink-soft);opacity:0.55;}
   .charge-row.off .charge-input-wrap{opacity:0.4;}
+  .charge-row.off .mode-switch{pointer-events:none;}
   .charge-row input[type="number"]{
     flex:1;width:100%;min-width:0;border:none;background:transparent;
     padding:9px 8px;font-family:'IBM Plex Mono',monospace;font-size:14px;
     color:var(--ink);
   }
   .charge-row input[type="number"]:focus{outline:none;}
+  .mode-switch{
+    display:flex;flex-shrink:0;border-left:1px solid var(--line);
+  }
+  .mode-switch button{
+    border:none;background:transparent;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);
+    padding:0 10px;height:34px;
+  }
+  .mode-switch button:first-child{border-right:1px solid var(--line);}
+  .mode-switch button.active{
+    background:var(--duit);color:#fffdf7;font-weight:600;
+  }
   .charge-row .unit{
     font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft);
     padding:0 10px;flex-shrink:0;
@@ -249,6 +262,20 @@
   }
   .add-person:hover{border-color:var(--duit);color:var(--duit);}
 
+  .reset-link{
+    display:block;
+    width:100%;
+    text-align:center;
+    background:none;border:none;
+    color:var(--stamp);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:0.3px;
+    padding:10px 0 2px;
+    cursor:pointer;
+    text-decoration:underline dotted;
+  }
+  .reset-link:hover{text-decoration:underline solid;}
+
   .grand-check{
     margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:12px;
     display:flex;justify-content:space-between;color:var(--ink-soft);
@@ -334,16 +361,24 @@
         <input class="toggle" id="taxEnable" type="checkbox" checked>
         <span class="charge-label">Cukai perkhidmatan</span>
         <div class="charge-input-wrap">
+          <span class="unit left" id="taxRmPrefix" style="display:none">RM</span>
           <input id="taxRate" type="number" inputmode="decimal" value="6" step="0.1" min="0">
-          <span class="unit right">%</span>
+          <div class="mode-switch" id="taxModeSwitch">
+            <button type="button" class="mode-btn active" data-mode="percent">%</button>
+            <button type="button" class="mode-btn" data-mode="amount">RM</button>
+          </div>
         </div>
       </div>
       <div class="charge-row off" id="scRow">
         <input class="toggle" id="scEnable" type="checkbox">
         <span class="charge-label">Caj perkhidmatan</span>
         <div class="charge-input-wrap">
+          <span class="unit left" id="scRmPrefix" style="display:none">RM</span>
           <input id="scRate" type="number" inputmode="decimal" value="10" step="0.1" min="0" disabled>
-          <span class="unit right">%</span>
+          <div class="mode-switch" id="scModeSwitch">
+            <button type="button" class="mode-btn active" data-mode="percent">%</button>
+            <button type="button" class="mode-btn" data-mode="amount">RM</button>
+          </div>
         </div>
       </div>
       <div class="charge-row off" id="deliveryRow">
@@ -363,7 +398,7 @@
       </div>
     </div>
     <div class="round-field">
-      <input id="roundToggle" type="checkbox" checked>
+      <input id="roundToggle" type="checkbox">
       <label for="roundToggle">Bundarkan jumlah setiap orang ke 5 sen terdekat</label>
     </div>
 
@@ -371,12 +406,12 @@
     <p class="sect-label">Siapa makan apa</p>
     <div class="people" id="peopleList"></div>
     <button class="add-person" id="addPersonBtn" type="button">+ TAMBAH ORANG</button>
-
-    <div class="grand-check" id="grandCheck"></div>
+    <button class="reset-link" id="resetBtn" type="button">&#8635; Isi semula</button>
 
     <hr class="dotted">
     <p class="sect-label">Bahagian setiap orang</p>
     <div class="results" id="results"></div>
+    <div class="grand-check" id="grandCheck"></div>
 
     <div class="grand-total">
       <span class="label">Jumlah semua</span>
@@ -395,12 +430,14 @@
 let people = [];
 let personSeq = 0;
 let itemSeq = 0;
+let taxMode = 'percent';
+let scMode = 'percent';
 
-function newPerson(name){
+function newPerson(){
   personSeq++;
   return {
     id:'p'+personSeq,
-    name: name || ('Orang '+personSeq),
+    name: '',
     items:[ newItem() ]
   };
 }
@@ -410,7 +447,49 @@ function newItem(){
 }
 
 function init(){
-  people = [newPerson('Orang 1'), newPerson('Orang 2'), newPerson('Orang 3')];
+  people = [newPerson(), newPerson(), newPerson()];
+  render();
+}
+
+function resetAll(){
+  // Reset senarai orang & item
+  people = [newPerson(), newPerson(), newPerson()];
+
+  // Reset Cukai perkhidmatan ke default: ON, mod %, 6%
+  document.getElementById('taxEnable').checked = true;
+  taxMode = 'percent';
+  document.getElementById('taxRate').value = '6';
+  document.getElementById('taxRate').step = '0.1';
+  document.getElementById('taxRate').placeholder = '';
+  document.getElementById('taxRmPrefix').style.display = 'none';
+  document.getElementById('taxModeSwitch').querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === 'percent');
+  });
+
+  // Reset Caj perkhidmatan ke default: OFF, mod %, 10%
+  document.getElementById('scEnable').checked = false;
+  scMode = 'percent';
+  document.getElementById('scRate').value = '10';
+  document.getElementById('scRate').step = '0.1';
+  document.getElementById('scRate').placeholder = '';
+  document.getElementById('scRmPrefix').style.display = 'none';
+  document.getElementById('scModeSwitch').querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === 'percent');
+  });
+
+  // Reset Fee penghantaran ke default: OFF, kosong
+  document.getElementById('deliveryEnable').checked = false;
+  document.getElementById('deliveryFee').value = '';
+
+  // Terapkan semula status enable/disable pada setiap charge row
+  ['taxEnable','scEnable','deliveryEnable'].forEach(id => {
+    document.getElementById(id).dispatchEvent(new Event('change'));
+  });
+
+  // Reset jumlah resit & rounding
+  document.getElementById('billCheck').value = '';
+  document.getElementById('roundToggle').checked = false;
+
   render();
 }
 
@@ -435,7 +514,7 @@ function renderPeople(){
     head.className = 'person-head';
     head.innerHTML = `
       <span class="tag">${String(idx+1).padStart(2,'0')}</span>
-      <input class="pname" type="text" value="${escapeHtml(p.name)}" placeholder="Nama">
+      <input class="pname" type="text" value="${escapeHtml(p.name)}" placeholder="Orang ${idx+1}">
       <button class="rm-person" type="button" title="Buang orang ini" ${people.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
     `;
     div.appendChild(head);
@@ -447,7 +526,7 @@ function renderPeople(){
       const showDesc = item.showDesc || !!item.desc;
       row.innerHTML = `
         ${showDesc
-          ? `<div class="desc-line"><input class="idesc" type="text" placeholder="Nasi Goreng" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
+          ? `<div class="desc-line"><input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
           : `<button class="add-note" type="button">+ nama makanan/minuman</button>`}
         <div class="iline">
           <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
@@ -526,22 +605,27 @@ function computeTotals(){
   const scEnabled = document.getElementById('scEnable').checked;
   const deliveryEnabled = document.getElementById('deliveryEnable').checked;
 
-  const taxRate = taxEnabled ? (parseFloat(document.getElementById('taxRate').value) || 0) : 0;
-  const scRate = scEnabled ? (parseFloat(document.getElementById('scRate').value) || 0) : 0;
+  const taxInput = parseFloat(document.getElementById('taxRate').value) || 0;
+  const scInput = parseFloat(document.getElementById('scRate').value) || 0;
   const deliveryFee = deliveryEnabled ? (parseFloat(document.getElementById('deliveryFee').value) || 0) : 0;
 
-  const perPerson = people.map(p => {
+  const perPerson = people.map((p, idx) => {
     const subtotal = p.items.reduce((s,it) => s + (parseFloat(it.price)||0), 0);
-    return {id:p.id, name:p.name || 'Tanpa nama', subtotal, items:p.items};
+    const displayName = (p.name && p.name.trim()) ? p.name.trim() : ('Orang ' + (idx+1));
+    return {id:p.id, name:displayName, subtotal, items:p.items};
   });
   const grandSubtotal = perPerson.reduce((s,p)=>s+p.subtotal,0);
   const peopleCount = perPerson.length || 1;
   const deliveryPerPerson = deliveryFee / peopleCount;
 
+  // Total tax/service-charge amount for the whole bill, depending on mode chosen.
+  const grandTax = !taxEnabled ? 0 : (taxMode === 'percent' ? grandSubtotal * (taxInput/100) : taxInput);
+  const grandSc = !scEnabled ? 0 : (scMode === 'percent' ? grandSubtotal * (scInput/100) : scInput);
+
   const results = perPerson.map(p => {
     const share = grandSubtotal > 0 ? p.subtotal / grandSubtotal : 0;
-    const taxAmt = grandSubtotal * (taxRate/100) * share;
-    const scAmt = grandSubtotal * (scRate/100) * share;
+    const taxAmt = grandTax * share;
+    const scAmt = grandSc * share;
     return {
       ...p,
       share,
@@ -552,11 +636,9 @@ function computeTotals(){
     };
   });
 
-  const grandTax = grandSubtotal * (taxRate/100);
-  const grandSc = grandSubtotal * (scRate/100);
   const grandTotal = grandSubtotal + grandTax + grandSc + deliveryFee;
 
-  return {results, grandSubtotal, grandTax, grandSc, deliveryFee, grandTotal, taxRate, scRate, taxEnabled, scEnabled, deliveryEnabled};
+  return {results, grandSubtotal, grandTax, grandSc, deliveryFee, grandTotal, taxEnabled, scEnabled, deliveryEnabled};
 }
 
 function roundToNearest5Sen(n){
@@ -594,7 +676,7 @@ function renderResults(){
         ${itemLines}
         ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
         ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
-        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
+        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran (sama rata)</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
         ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
         <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
       `;
@@ -627,6 +709,12 @@ document.getElementById('addPersonBtn').addEventListener('click', () => {
   people.push(newPerson());
   render();
 });
+document.getElementById('resetBtn').addEventListener('click', () => {
+  const confirmed = window.confirm('Padam semua data (orang, makanan, caj) dan isi semula?');
+  if(confirmed){
+    resetAll();
+  }
+});
 document.getElementById('taxRate').addEventListener('input', renderResults);
 document.getElementById('scRate').addEventListener('input', renderResults);
 document.getElementById('deliveryFee').addEventListener('input', renderResults);
@@ -637,15 +725,50 @@ function setupChargeToggle(checkboxId, rowId, inputId){
   const checkbox = document.getElementById(checkboxId);
   const row = document.getElementById(rowId);
   const input = document.getElementById(inputId);
-  checkbox.addEventListener('change', () => {
+  const modeBtns = row.querySelectorAll('.mode-btn');
+  const applyState = () => {
     input.disabled = !checkbox.checked;
     row.classList.toggle('off', !checkbox.checked);
+    modeBtns.forEach(b => { b.disabled = !checkbox.checked; });
+  };
+  checkbox.addEventListener('change', () => {
+    applyState();
     renderResults();
   });
+  applyState();
 }
 setupChargeToggle('taxEnable', 'taxRow', 'taxRate');
 setupChargeToggle('scEnable', 'scRow', 'scRate');
 setupChargeToggle('deliveryEnable', 'deliveryRow', 'deliveryFee');
+
+function setupModeSwitch(switchId, inputId, prefixId, defaultPercentValue, setMode){
+  const wrap = document.getElementById(switchId);
+  const input = document.getElementById(inputId);
+  const prefix = document.getElementById(prefixId);
+  wrap.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.disabled) return;
+      wrap.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.mode;
+      setMode(mode);
+      if(mode === 'percent'){
+        input.step = '0.1';
+        input.placeholder = '';
+        input.value = defaultPercentValue;
+        prefix.style.display = 'none';
+      } else {
+        input.step = '0.01';
+        input.placeholder = '0.00';
+        input.value = '';
+        prefix.style.display = '';
+      }
+      renderResults();
+    });
+  });
+}
+setupModeSwitch('taxModeSwitch', 'taxRate', 'taxRmPrefix', '6', m => { taxMode = m; });
+setupModeSwitch('scModeSwitch', 'scRate', 'scRmPrefix', '10', m => { scMode = m; });
 
 init();
 </script>
