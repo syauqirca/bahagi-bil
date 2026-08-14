@@ -38,8 +38,6 @@
 
   .receipt{
     background:var(--paper);
-    background-image: linear-gradient(var(--paper-2) 1px, transparent 1px);
-    background-size: 100% 34px;
     padding:6px 26px 20px;
     box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.03);
   }
@@ -331,6 +329,15 @@
     padding:0 6px;
   }
 
+  .share-btn{
+    width:100%;margin-top:18px;padding:13px;
+    background:var(--stamp);color:#fdf6ee;border:none;border-radius:4px;
+    font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;
+    letter-spacing:0.3px;cursor:pointer;
+  }
+  .share-btn:hover{background:#a13a26;}
+  .share-btn:disabled{opacity:0.6;cursor:default;}
+
   .empty-hint{
     text-align:center;color:var(--ink-soft);font-size:12px;
     padding:18px 0 4px;font-family:'IBM Plex Mono',monospace;
@@ -418,6 +425,8 @@
       <span class="amt" id="grandAmt">RM0.00</span>
     </div>
 
+    <button class="share-btn" id="shareBtn" type="button">&#128228; Kongsi / Simpan Resit</button>
+
     <p class="foot-note">Cukai &amp; caj perkhidmatan dibahagi ikut nisbah makanan setiap orang, manakala fee penghantaran dibahagi sama rata. Boleh matikan mana-mana caj yang tiada dalam bil anda.</p>
   </div>
 
@@ -426,6 +435,9 @@
   </svg>
 </div>
 
+<div id="shareReceiptWrap" class="wrap" style="position:fixed;left:-9999px;top:0;width:440px;pointer-events:none;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 let people = [];
 let personSeq = 0;
@@ -526,7 +538,7 @@ function renderPeople(){
       const showDesc = item.showDesc || !!item.desc;
       row.innerHTML = `
         ${showDesc
-          ? `<div class="desc-line"><input class="idesc" type="text" placeholder="cth. Nasi Goreng (pilihan)" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
+          ? `<div class="desc-line"><input class="idesc" type="text" placeholder="Nasi Goreng" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
           : `<button class="add-note" type="button">+ nama makanan/minuman</button>`}
         <div class="iline">
           <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
@@ -645,6 +657,36 @@ function roundToNearest5Sen(n){
   return Math.round(n * 20) / 20;
 }
 
+function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound){
+  let html = '';
+  let roundedSum = 0;
+  results.forEach(r => {
+    const roundedTotal = doRound ? roundToNearest5Sen(r.total) : r.total;
+    roundedSum += roundedTotal;
+    const roundDiff = roundedTotal - r.total;
+
+    const itemLines = (r.items || [])
+      .filter(it => (parseFloat(it.price)||0) > 0 || (it.desc && it.desc.trim()))
+      .map(it => {
+        const label = (it.desc && it.desc.trim()) ? it.desc.trim() : 'Makanan/Minuman';
+        return `<div class="rline sub"><span>${escapeHtml(label)}</span><span class="amt">${fmt(parseFloat(it.price)||0)}</span></div>`;
+      }).join('');
+
+    html += `
+      <div class="rperson">
+        <p class="rperson-name">${escapeHtml(r.name || 'Tanpa nama')}</p>
+        ${itemLines}
+        ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
+        ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
+        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
+        ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
+        <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
+      </div>
+    `;
+  });
+  return {html, roundedSum};
+}
+
 function renderResults(){
   const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
   const resDiv = document.getElementById('results');
@@ -655,33 +697,8 @@ function renderResults(){
   if(grandSubtotal <= 0){
     resDiv.innerHTML = '<p class="empty-hint">Masukkan harga makanan setiap orang dulu.</p>';
   } else {
-    resDiv.innerHTML = '';
-    let roundedSum = 0;
-    results.forEach(r => {
-      const roundedTotal = doRound ? roundToNearest5Sen(r.total) : r.total;
-      roundedSum += roundedTotal;
-      const roundDiff = roundedTotal - r.total;
-
-      const itemLines = (r.items || [])
-        .filter(it => (parseFloat(it.price)||0) > 0 || (it.desc && it.desc.trim()))
-        .map(it => {
-          const label = (it.desc && it.desc.trim()) ? it.desc.trim() : 'Makanan/Minuman';
-          return `<div class="rline sub"><span>${escapeHtml(label)}</span><span class="amt">${fmt(parseFloat(it.price)||0)}</span></div>`;
-        }).join('');
-
-      const block = document.createElement('div');
-      block.className = 'rperson';
-      block.innerHTML = `
-        <p class="rperson-name">${escapeHtml(r.name || 'Tanpa nama')}</p>
-        ${itemLines}
-        ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
-        ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
-        ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran (sama rata)</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
-        ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
-        <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
-      `;
-      resDiv.appendChild(block);
-    });
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
+    resDiv.innerHTML = html;
     displayedGrandTotal = doRound ? roundedSum : grandTotal;
   }
 
@@ -769,6 +786,106 @@ function setupModeSwitch(switchId, inputId, prefixId, defaultPercentValue, setMo
 }
 setupModeSwitch('taxModeSwitch', 'taxRate', 'taxRmPrefix', '6', m => { taxMode = m; });
 setupModeSwitch('scModeSwitch', 'scRate', 'scRmPrefix', '10', m => { scMode = m; });
+
+const ZIGZAG_PATH = 'M0,6 L0,3 L2.5,0 L5,3 L7.5,0 L10,3 L12.5,0 L15,3 L17.5,0 L20,3 L22.5,0 L25,3 L27.5,0 L30,3 L32.5,0 L35,3 L37.5,0 L40,3 L42.5,0 L45,3 L47.5,0 L50,3 L52.5,0 L55,3 L57.5,0 L60,3 L62.5,0 L65,3 L67.5,0 L70,3 L72.5,0 L75,3 L77.5,0 L80,3 L82.5,0 L85,3 L87.5,0 L90,3 L92.5,0 L95,3 L97.5,0 L100,3 L100,6 Z';
+
+function buildShareReceiptHTML(){
+  const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
+  const doRound = document.getElementById('roundToggle').checked;
+
+  let resultsHTML, displayedGrandTotal;
+  if(grandSubtotal <= 0){
+    resultsHTML = '<p class="empty-hint">Tiada data untuk dikongsi.</p>';
+    displayedGrandTotal = 0;
+  } else {
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
+    resultsHTML = html;
+    displayedGrandTotal = doRound ? roundedSum : grandTotal;
+  }
+
+  const dateStr = new Date().toLocaleDateString('ms-MY', {day:'numeric', month:'short', year:'numeric'});
+
+  return `
+    <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none"><path d="${ZIGZAG_PATH}"/></svg>
+    <div class="receipt">
+      <div class="head">
+        <p class="store">BAHAGI BIL</p>
+        <p class="tagline">Kira bahagian, bukan pergaduhan</p>
+      </div>
+      <hr class="dotted">
+      <p class="sect-label">Bahagian setiap orang</p>
+      <div class="results">${resultsHTML}</div>
+      <div class="grand-total">
+        <span class="label">Jumlah semua</span>
+        <span class="amt">${fmt(displayedGrandTotal)}</span>
+      </div>
+      <p class="foot-note">Dijana melalui Bahagi Bil &middot; ${dateStr}</p>
+    </div>
+    <svg class="zigzag" viewBox="0 0 100 6" preserveAspectRatio="none" style="transform:rotate(180deg)"><path d="${ZIGZAG_PATH}"/></svg>
+  `;
+}
+
+function downloadBlob(blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'bahagi-bil.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function handleShare(){
+  const btn = document.getElementById('shareBtn');
+  if(typeof html2canvas === 'undefined'){
+    alert('Maaf, ciri kongsi gambar belum sedia (sambungan internet diperlukan untuk muatkan libraninya). Cuba refresh page.');
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Menjana gambar...';
+
+  try{
+    const holder = document.getElementById('shareReceiptWrap');
+    holder.innerHTML = buildShareReceiptHTML();
+    await new Promise(requestAnimationFrame);
+
+    const canvas = await html2canvas(holder, {backgroundColor:'#17222a', scale:2});
+
+    canvas.toBlob(async (blob) => {
+      holder.innerHTML = '';
+      if(!blob){
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+      const file = new File([blob], 'bahagi-bil.png', {type:'image/png'});
+      let shared = false;
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file], title:'Bahagi Bil', text:'Ni bahagian bil kita 🧾'});
+          shared = true;
+        }catch(err){
+          if(err && err.name === 'AbortError'){
+            shared = true; // user cancelled deliberately, don't fallback to download
+          }
+        }
+      }
+      if(!shared){
+        downloadBlob(blob);
+      }
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }, 'image/png');
+  }catch(err){
+    console.error(err);
+    alert('Maaf, gagal jana gambar resit. Cuba lagi.');
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+document.getElementById('shareBtn').addEventListener('click', handleShare);
 
 init();
 </script>
