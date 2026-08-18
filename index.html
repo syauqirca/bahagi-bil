@@ -178,9 +178,10 @@
     font-family:'Space Grotesk',sans-serif;
     font-weight:600;font-size:15.5px;color:var(--ink);
     padding:2px 2px 4px;
-    border-bottom:1px solid transparent;
+    border-bottom:1.5px dashed var(--line);
   }
-  .person-head input.pname:focus{outline:none;border-bottom:1px solid var(--duit);}
+  .person-head input.pname::placeholder{color:var(--ink-soft);opacity:0.75;}
+  .person-head input.pname:focus{outline:none;border-bottom:1.5px solid var(--duit);}
   .person-head .rm-person{
     background:none;border:none;color:var(--ink-soft);cursor:pointer;
     font-size:16px;line-height:1;padding:2px 4px;
@@ -660,11 +661,34 @@ function roundToNearest5Sen(n){
   return Math.round(n * 20) / 20;
 }
 
-function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound){
+// Bila rounding 5-sen OFF, setiap jumlah dipaparkan ke sen terdekat secara berasingan.
+// Jumlah semua nombor yang dipaparkan tu kadang tak padan tepat dgn "Jumlah Semua"
+// sebab pembundaran berasingan (isu biasa dlm pengiraan pembahagian bil).
+// Fungsi ni betulkan dengan letak beza (biasanya 1 sen) pada orang jumlah tertinggi.
+function computeDisplayTotals(results, doRound, grandTotalExact){
+  if(doRound){
+    return results.map(r => roundToNearest5Sen(r.total));
+  }
+  const cents = results.map(r => Math.round(r.total * 100));
+  const sumCents = cents.reduce((a,b) => a+b, 0);
+  const targetCents = Math.round(grandTotalExact * 100);
+  const diff = targetCents - sumCents;
+  if(diff !== 0 && cents.length > 0){
+    let maxIdx = 0;
+    for(let i=1;i<cents.length;i++){
+      if(cents[i] > cents[maxIdx]) maxIdx = i;
+    }
+    cents[maxIdx] += diff;
+  }
+  return cents.map(c => c/100);
+}
+
+function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotalExact){
   let html = '';
   let roundedSum = 0;
-  results.forEach(r => {
-    const roundedTotal = doRound ? roundToNearest5Sen(r.total) : r.total;
+  const displayTotals = computeDisplayTotals(results, doRound, grandTotalExact);
+  results.forEach((r, i) => {
+    const roundedTotal = displayTotals[i];
     roundedSum += roundedTotal;
     const roundDiff = roundedTotal - r.total;
 
@@ -682,7 +706,7 @@ function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, 
         ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
         ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
         ${deliveryEnabled ? `<div class="rline sub"><span>Fee penghantaran</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
-        ${doRound && Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
+        ${Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
         <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
       </div>
     `;
@@ -700,9 +724,9 @@ function renderResults(){
   if(grandSubtotal <= 0){
     resDiv.innerHTML = '<p class="empty-hint">Masukkan harga makanan setiap orang dulu.</p>';
   } else {
-    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotal);
     resDiv.innerHTML = html;
-    displayedGrandTotal = doRound ? roundedSum : grandTotal;
+    displayedGrandTotal = roundedSum;
   }
 
   document.getElementById('grandAmt').textContent = fmt(displayedGrandTotal);
@@ -809,9 +833,9 @@ function buildShareReceiptHTML(){
     resultsHTML = '<p class="empty-hint">Tiada data untuk dikongsi.</p>';
     displayedGrandTotal = 0;
   } else {
-    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotal);
     resultsHTML = html;
-    displayedGrandTotal = doRound ? roundedSum : grandTotal;
+    displayedGrandTotal = roundedSum;
   }
 
   const dateStr = formatDateDDMMYYYY(new Date());
