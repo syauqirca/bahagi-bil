@@ -690,7 +690,10 @@ function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, 
   results.forEach((r, i) => {
     const roundedTotal = displayTotals[i];
     roundedSum += roundedTotal;
-    const roundDiff = roundedTotal - r.total;
+    // Bandingkan dalam unit SEN (integer), bukan nombor perpuluhan terus, supaya
+    // baris "Bundaran" hanya muncul bila beza tu betul-betul boleh dipaparkan
+    // sebagai sekurang-kurangnya 1 sen (elak papar "Bundaran +RM0.00").
+    const roundDiffCents = Math.round(roundedTotal * 100) - Math.round(r.total * 100);
 
     const itemLines = (r.items || [])
       .filter(it => (parseFloat(it.price)||0) > 0 || (it.desc && it.desc.trim()))
@@ -706,7 +709,7 @@ function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, 
         ${taxEnabled ? `<div class="rline sub"><span>Cukai perkhidmatan</span><span class="amt">${fmt(r.taxAmt)}</span></div>` : ''}
         ${scEnabled ? `<div class="rline sub"><span>Caj perkhidmatan</span><span class="amt">${fmt(r.scAmt)}</span></div>` : ''}
         ${deliveryEnabled ? `<div class="rline sub"><span>Caj penghantaran</span><span class="amt">${fmt(r.deliveryAmt)}</span></div>` : ''}
-        ${Math.abs(roundDiff) > 0.001 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiff > 0 ? '+' : '-'}${fmt(Math.abs(roundDiff))}</span></div>` : ''}
+        ${roundDiffCents !== 0 ? `<div class="rline round-note"><span>Bundaran</span><span class="amt">${roundDiffCents > 0 ? '+' : '-'}${fmt(Math.abs(roundDiffCents)/100)}</span></div>` : ''}
         <div class="rline total"><span>Jumlah bayar</span><span class="amt">${fmt(roundedTotal)}</span></div>
       </div>
     `;
