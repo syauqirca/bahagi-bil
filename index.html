@@ -632,27 +632,37 @@ function computeTotals(){
   });
   const grandSubtotal = perPerson.reduce((s,p)=>s+p.subtotal,0);
   const peopleCount = perPerson.length || 1;
-  const deliveryPerPerson = deliveryFee / peopleCount;
+  const deliveryPerPersonRaw = deliveryFee / peopleCount;
 
-  // Total tax/service-charge amount for the whole bill, depending on mode chosen.
-  const grandTax = !taxEnabled ? 0 : (taxMode === 'percent' ? grandSubtotal * (taxInput/100) : taxInput);
-  const grandSc = !scEnabled ? 0 : (scMode === 'percent' ? grandSubtotal * (scInput/100) : scInput);
+  // Jumlah caj keseluruhan (sebelum dibahagi ikut nisbah setiap orang).
+  const totalTaxAmount = !taxEnabled ? 0 : (taxMode === 'percent' ? grandSubtotal * (taxInput/100) : taxInput);
+  const totalScAmount = !scEnabled ? 0 : (scMode === 'percent' ? grandSubtotal * (scInput/100) : scInput);
 
+  // PENTING: bundar Cukai/Caj/Delivery setiap orang ke sen SEBELUM digabung jadi
+  // "Jumlah bayar". Dengan cara ni, baris yang dipaparkan (subtotal + cukai + caj)
+  // akan SENTIASA padan tepat bila ditambah manual — sebab "Jumlah bayar" memang
+  // dibina terus dari nombor yang sama yang dipaparkan, bukan dikira berasingan.
   const results = perPerson.map(p => {
     const share = grandSubtotal > 0 ? p.subtotal / grandSubtotal : 0;
-    const taxAmt = grandTax * share;
-    const scAmt = grandSc * share;
+    const taxAmt = Math.round(totalTaxAmount * share * 100) / 100;
+    const scAmt = Math.round(totalScAmount * share * 100) / 100;
+    const deliveryAmt = Math.round(deliveryPerPersonRaw * 100) / 100;
+    const total = Math.round((p.subtotal + taxAmt + scAmt + deliveryAmt) * 100) / 100;
     return {
       ...p,
       share,
       taxAmt,
       scAmt,
-      deliveryAmt: deliveryPerPerson,
-      total: p.subtotal + taxAmt + scAmt + deliveryPerPerson
+      deliveryAmt,
+      total
     };
   });
 
-  const grandTotal = grandSubtotal + grandTax + grandSc + deliveryFee;
+  // Jumlah Semua = TOTAL dari apa yang dipaparkan setiap orang (bottom-up),
+  // bukan dikira berasingan dari subtotal keseluruhan — supaya sentiasa konsisten.
+  const grandTax = results.reduce((s,r) => s + r.taxAmt, 0);
+  const grandSc = results.reduce((s,r) => s + r.scAmt, 0);
+  const grandTotal = results.reduce((s,r) => s + r.total, 0);
 
   return {results, grandSubtotal, grandTax, grandSc, deliveryFee, grandTotal, taxEnabled, scEnabled, deliveryEnabled};
 }
@@ -661,39 +671,26 @@ function roundToNearest5Sen(n){
   return Math.round(n * 20) / 20;
 }
 
-// Bila rounding 5-sen OFF, setiap jumlah dipaparkan ke sen terdekat secara berasingan.
-// Jumlah semua nombor yang dipaparkan tu kadang tak padan tepat dgn "Jumlah Semua"
-// sebab pembundaran berasingan (isu biasa dlm pengiraan pembahagian bil).
-// Fungsi ni betulkan dengan letak beza (biasanya 1 sen) pada orang jumlah tertinggi.
-function computeDisplayTotals(results, doRound, grandTotalExact){
+// r.taxAmt, r.scAmt, r.deliveryAmt, dan r.total dah dibundar ke sen sejak dari
+// computeTotals() lagi, jadi di sini tak perlu apa-apa reconciliation/redistribution
+// tambahan — cuma perlu tentukan sama ada nak bundar lagi ke 5-sen (bila user tick).
+function computeDisplayTotals(results, doRound){
   if(doRound){
     return results.map(r => roundToNearest5Sen(r.total));
   }
-  const cents = results.map(r => Math.round(r.total * 100));
-  const sumCents = cents.reduce((a,b) => a+b, 0);
-  const targetCents = Math.round(grandTotalExact * 100);
-  const diff = targetCents - sumCents;
-  if(diff !== 0 && cents.length > 0){
-    let maxIdx = 0;
-    for(let i=1;i<cents.length;i++){
-      if(cents[i] > cents[maxIdx]) maxIdx = i;
-    }
-    cents[maxIdx] += diff;
-  }
-  return cents.map(c => c/100);
+  return results.map(r => r.total);
 }
 
-function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotalExact){
+function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound){
   let html = '';
   let roundedSum = 0;
-  const displayTotals = computeDisplayTotals(results, doRound, grandTotalExact);
+  const displayTotals = computeDisplayTotals(results, doRound);
   results.forEach((r, i) => {
     const roundedTotal = displayTotals[i];
     roundedSum += roundedTotal;
-    // Bandingkan dalam unit SEN (integer), bukan nombor perpuluhan terus, supaya
-    // baris "Bundaran" hanya muncul bila beza tu betul-betul boleh dipaparkan
-    // sebagai sekurang-kurangnya 1 sen (elak papar "Bundaran +RM0.00").
-    const roundDiffCents = Math.round(roundedTotal * 100) - Math.round(r.total * 100);
+    // Baris "Bundaran" cuma muncul bila mod 5-sen AKTIF (satu-satunya masa nombor
+    // dilaraskan dari nilai asal), dan cuma bila beza tu boleh dipaparkan sbg 1 sen+.
+    const roundDiffCents = doRound ? (Math.round(roundedTotal * 100) - Math.round(r.total * 100)) : 0;
 
     const itemLines = (r.items || [])
       .filter(it => (parseFloat(it.price)||0) > 0 || (it.desc && it.desc.trim()))
@@ -727,7 +724,7 @@ function renderResults(){
   if(grandSubtotal <= 0){
     resDiv.innerHTML = '<p class="empty-hint">Masukkan harga makanan setiap orang dulu.</p>';
   } else {
-    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotal);
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
     resDiv.innerHTML = html;
     displayedGrandTotal = roundedSum;
   }
@@ -836,7 +833,7 @@ function buildShareReceiptHTML(){
     resultsHTML = '<p class="empty-hint">Tiada data untuk dikongsi.</p>';
     displayedGrandTotal = 0;
   } else {
-    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound, grandTotal);
+    const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
     resultsHTML = html;
     displayedGrandTotal = roundedSum;
   }
