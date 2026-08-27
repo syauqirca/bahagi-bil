@@ -311,6 +311,11 @@
   }
   .rline.round-note .amt{color:var(--ink-soft);}
 
+  .grand-breakdown{
+    margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  }
+  .grand-breakdown .rline{font-size:12px;}
+
   .grand-total{
     margin-top:16px;padding-top:14px;border-top:2px solid var(--ink);
     display:flex;justify-content:space-between;align-items:baseline;
@@ -422,6 +427,7 @@
     <hr class="dotted">
     <p class="sect-label">Bahagian setiap orang</p>
     <div class="results" id="results"></div>
+    <div class="grand-breakdown" id="grandBreakdown"></div>
     <div class="grand-check" id="grandCheck"></div>
 
     <div class="grand-total">
@@ -660,11 +666,12 @@ function computeTotals(){
 
   // Jumlah Semua = TOTAL dari apa yang dipaparkan setiap orang (bottom-up),
   // bukan dikira berasingan dari subtotal keseluruhan — supaya sentiasa konsisten.
-  const grandTax = results.reduce((s,r) => s + r.taxAmt, 0);
-  const grandSc = results.reduce((s,r) => s + r.scAmt, 0);
   const grandTotal = results.reduce((s,r) => s + r.total, 0);
 
-  return {results, grandSubtotal, grandTax, grandSc, deliveryFee, grandTotal, taxEnabled, scEnabled, deliveryEnabled};
+  // Untuk breakdown "Jumlah cukai/caj/penghantaran", papar terus angka ASAL bil
+  // (sebelum dibahagi ikut orang) — bukan jumlah dari bahagian setiap orang yang
+  // dah dibundar (yang kadang lari 1 sen akibat pembundaran, cth RM5 jadi RM5.01).
+  return {results, grandSubtotal, grandTax: totalTaxAmount, grandSc: totalScAmount, grandDelivery: deliveryFee, deliveryFee, grandTotal, taxEnabled, scEnabled, deliveryEnabled};
 }
 
 function roundToNearest5Sen(n){
@@ -714,8 +721,20 @@ function buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, 
   return {html, roundedSum};
 }
 
+function buildGrandBreakdownHTML(grandTax, grandSc, grandDelivery, taxEnabled, scEnabled, deliveryEnabled){
+  const lines = [];
+  const taxRateVal = document.getElementById('taxRate').value;
+  const scRateVal = document.getElementById('scRate').value;
+  const taxLabel = (taxMode === 'percent') ? `Jumlah cukai perkhidmatan (${taxRateVal}%)` : 'Jumlah cukai perkhidmatan';
+  const scLabel = (scMode === 'percent') ? `Jumlah caj perkhidmatan (${scRateVal}%)` : 'Jumlah caj perkhidmatan';
+  if(taxEnabled) lines.push(`<div class="rline sub"><span>${taxLabel}</span><span class="amt">${fmt(grandTax)}</span></div>`);
+  if(scEnabled) lines.push(`<div class="rline sub"><span>${scLabel}</span><span class="amt">${fmt(grandSc)}</span></div>`);
+  if(deliveryEnabled) lines.push(`<div class="rline sub"><span>Jumlah caj penghantaran</span><span class="amt">${fmt(grandDelivery)}</span></div>`);
+  return lines.join('');
+}
+
 function renderResults(){
-  const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
+  const {results, grandSubtotal, grandTax, grandSc, grandDelivery, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
   const resDiv = document.getElementById('results');
   const doRound = document.getElementById('roundToggle').checked;
 
@@ -723,10 +742,12 @@ function renderResults(){
 
   if(grandSubtotal <= 0){
     resDiv.innerHTML = '<p class="empty-hint">Masukkan harga makanan setiap orang dulu.</p>';
+    document.getElementById('grandBreakdown').innerHTML = '';
   } else {
     const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
     resDiv.innerHTML = html;
     displayedGrandTotal = roundedSum;
+    document.getElementById('grandBreakdown').innerHTML = buildGrandBreakdownHTML(grandTax, grandSc, grandDelivery, taxEnabled, scEnabled, deliveryEnabled);
   }
 
   document.getElementById('grandAmt').textContent = fmt(displayedGrandTotal);
@@ -734,14 +755,17 @@ function renderResults(){
   const checkVal = parseFloat(document.getElementById('billCheck').value);
   const checkDiv = document.getElementById('grandCheck');
   if(!isNaN(checkVal) && checkVal > 0){
-    const diff = grandTotal - checkVal;
-    if(Math.abs(diff) < 0.05){
+    // Banding dalam unit SEN (integer) untuk semakan padan yang TEPAT — bukan
+    // toleransi longgar. Sebab pengiraan sekarang dah tepat ke sen sepenuhnya,
+    // sebarang beza (walau 1 sen) sepatutnya dikira "tak sepadan".
+    const diffCents = Math.round(displayedGrandTotal * 100) - Math.round(checkVal * 100);
+    if(diffCents === 0){
       checkDiv.className = 'grand-check match';
-      checkDiv.innerHTML = `<span>Sepadan dengan resit</span><span>${fmt(grandTotal)}</span>`;
+      checkDiv.innerHTML = `<span>Sepadan dengan resit</span><span>${fmt(displayedGrandTotal)}</span>`;
     } else {
       checkDiv.className = 'grand-check mismatch';
-      const sign = diff > 0 ? '+' : '-';
-      checkDiv.innerHTML = `<span>Beza dengan resit</span><span>${sign}${fmt(Math.abs(diff))}</span>`;
+      const sign = diffCents > 0 ? '+' : '-';
+      checkDiv.innerHTML = `<span>Beza dengan resit</span><span>${sign}${fmt(Math.abs(diffCents)/100)}</span>`;
     }
   } else {
     checkDiv.className = 'grand-check';
@@ -825,17 +849,19 @@ function formatDateDDMMYYYY(d){
 }
 
 function buildShareReceiptHTML(){
-  const {results, grandSubtotal, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
+  const {results, grandSubtotal, grandTax, grandSc, grandDelivery, grandTotal, taxEnabled, scEnabled, deliveryEnabled} = computeTotals();
   const doRound = document.getElementById('roundToggle').checked;
 
-  let resultsHTML, displayedGrandTotal;
+  let resultsHTML, displayedGrandTotal, breakdownHTML;
   if(grandSubtotal <= 0){
     resultsHTML = '<p class="empty-hint">Tiada data untuk dikongsi.</p>';
     displayedGrandTotal = 0;
+    breakdownHTML = '';
   } else {
     const {html, roundedSum} = buildPersonBlocksHTML(results, taxEnabled, scEnabled, deliveryEnabled, doRound);
     resultsHTML = html;
     displayedGrandTotal = roundedSum;
+    breakdownHTML = buildGrandBreakdownHTML(grandTax, grandSc, grandDelivery, taxEnabled, scEnabled, deliveryEnabled);
   }
 
   const dateStr = formatDateDDMMYYYY(new Date());
@@ -850,6 +876,7 @@ function buildShareReceiptHTML(){
       <hr class="dotted">
       <p class="sect-label">Bahagian setiap orang</p>
       <div class="results">${resultsHTML}</div>
+      <div class="grand-breakdown">${breakdownHTML}</div>
       <div class="grand-total">
         <span class="label">Jumlah semua</span>
         <span class="amt">${fmt(displayedGrandTotal)}</span>
