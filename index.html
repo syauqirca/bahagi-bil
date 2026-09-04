@@ -638,21 +638,36 @@ function computeTotals(){
   });
   const grandSubtotal = perPerson.reduce((s,p)=>s+p.subtotal,0);
   const peopleCount = perPerson.length || 1;
-  const deliveryPerPersonRaw = deliveryFee / peopleCount;
 
   // Jumlah caj keseluruhan (sebelum dibahagi ikut nisbah setiap orang).
   const totalTaxAmount = !taxEnabled ? 0 : (taxMode === 'percent' ? grandSubtotal * (taxInput/100) : taxInput);
   const totalScAmount = !scEnabled ? 0 : (scMode === 'percent' ? grandSubtotal * (scInput/100) : scInput);
 
+  // Bahagi caj penghantaran SAMA RATA dalam unit SEN (bukan RM terus), dan letak
+  // baki sen (kalau tak boleh dibahagi genap, cth RM7/3) pada orang yang makan
+  // PALING BANYAK (subtotal tertinggi). Ni pastikan jumlah caj penghantaran semua
+  // orang bila ditambah SENTIASA tepat padan dengan jumlah yang ditaip (elak isu
+  // RM7 jadi RM6.99 disebabkan pembundaran berasingan bagi setiap orang).
+  const deliveryTotalCents = Math.round(deliveryFee * 100);
+  const deliveryBaseCents = Math.floor(deliveryTotalCents / peopleCount);
+  const deliveryRemainderCents = deliveryTotalCents - (deliveryBaseCents * peopleCount);
+
+  // Susun index ikut subtotal tertinggi dulu, supaya baki sen (kalau ada)
+  // diberi kepada orang yang subtotal makanan dia paling besar.
+  const orderBySubtotalDesc = perPerson
+    .map((p, idx) => idx)
+    .sort((a, b) => perPerson[b].subtotal - perPerson[a].subtotal);
+  const deliveryBonusIdx = new Set(orderBySubtotalDesc.slice(0, deliveryRemainderCents));
+
   // PENTING: bundar Cukai/Caj/Delivery setiap orang ke sen SEBELUM digabung jadi
   // "Jumlah bayar". Dengan cara ni, baris yang dipaparkan (subtotal + cukai + caj)
   // akan SENTIASA padan tepat bila ditambah manual — sebab "Jumlah bayar" memang
   // dibina terus dari nombor yang sama yang dipaparkan, bukan dikira berasingan.
-  const results = perPerson.map(p => {
+  const results = perPerson.map((p, idx) => {
     const share = grandSubtotal > 0 ? p.subtotal / grandSubtotal : 0;
     const taxAmt = Math.round(totalTaxAmount * share * 100) / 100;
     const scAmt = Math.round(totalScAmount * share * 100) / 100;
-    const deliveryAmt = Math.round(deliveryPerPersonRaw * 100) / 100;
+    const deliveryAmt = (deliveryBaseCents + (deliveryBonusIdx.has(idx) ? 1 : 0)) / 100;
     const total = Math.round((p.subtotal + taxAmt + scAmt + deliveryAmt) * 100) / 100;
     return {
       ...p,
