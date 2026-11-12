@@ -104,12 +104,14 @@
   .charge-row.off .charge-label{color:var(--ink-soft);opacity:0.55;}
   .charge-row.off .charge-input-wrap{opacity:0.4;}
   .charge-row.off .mode-switch{pointer-events:none;}
-  .charge-row input[type="number"]{
+  .charge-row input[type="number"],
+  .charge-row input[type="text"]{
     flex:1;width:100%;min-width:0;border:none;background:transparent;
     padding:9px 8px;font-family:'IBM Plex Mono',monospace;font-size:14px;
     color:var(--ink);
   }
-  .charge-row input[type="number"]:focus{outline:none;}
+  .charge-row input[type="number"]:focus,
+  .charge-row input[type="text"]:focus{outline:none;}
   .mode-switch{
     display:flex;flex-shrink:0;border-left:1px solid var(--line);
   }
@@ -407,7 +409,7 @@
         <span class="charge-label">Caj penghantaran</span>
         <div class="charge-input-wrap">
           <span class="unit left">RM</span>
-          <input id="deliveryFee" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" disabled>
+          <input id="deliveryFee" type="text" inputmode="numeric" data-money="1" autocomplete="off" placeholder="0.00" disabled>
         </div>
       </div>
     </div>
@@ -415,7 +417,7 @@
       <label for="billCheck">Jumlah dalam resit (untuk semak, tak wajib)</label>
       <div class="amt-wrap">
         <span class="amt-sign">RM</span>
-        <input id="billCheck" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0">
+        <input id="billCheck" type="text" inputmode="numeric" data-money="1" autocomplete="off" placeholder="0.00">
       </div>
     </div>
     <div class="round-field">
@@ -460,6 +462,52 @@ let itemSeq = 0;
 let taxMode = 'percent';
 let scMode = 'percent';
 
+// ===== Input amaun gaya bank =====
+// Digit masuk dari belakang (sen): tekan 2 -> 0.02, tekan 4 -> 0.24, tekan 0 -> 2.40.
+// Backspace buang digit terakhir. Hanya digit diterima, jadi nombor negatif/titik tak boleh ditaip.
+function formatMoneyDigits(raw){
+  let digits = String(raw).replace(/\D/g, '').replace(/^0+/, '');
+  if(digits.length > 9) digits = digits.slice(0, 9);   // had RM9,999,999.99
+  if(digits === '') return '';
+  digits = digits.padStart(3, '0');
+  return digits.slice(0, -2) + '.' + digits.slice(-2);
+}
+function caretToEnd(el){
+  try{ el.setSelectionRange(el.value.length, el.value.length); }catch(_){}
+}
+// Capture phase: format dulu sebelum listener lain (renderResults dll) baca nilai input.
+document.addEventListener('input', e => {
+  const el = e.target;
+  if(el && el.dataset && el.dataset.money === '1'){
+    const formatted = formatMoneyDigits(el.value);
+    if(el.value !== formatted) el.value = formatted;
+    caretToEnd(el);
+  }
+}, true);
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if(el && el.dataset && el.dataset.money === '1'){
+    setTimeout(() => caretToEnd(el), 0);
+  }
+});
+// Tukar kotak cukai/caj antara mod % (nombor biasa) dan mod RM (gaya bank).
+function setMoneyMode(input, on){
+  if(on){
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.dataset.money = '1';
+    input.setAttribute('autocomplete', 'off');
+    input.placeholder = '0.00';
+    input.value = '';
+  } else {
+    input.type = 'number';
+    input.inputMode = 'decimal';
+    delete input.dataset.money;
+    input.step = '0.1';
+    input.placeholder = '';
+  }
+}
+
 function newPerson(){
   personSeq++;
   return {
@@ -485,9 +533,8 @@ function resetAll(){
   // Reset Cukai perkhidmatan ke default: ON, mod %, 6%
   document.getElementById('taxEnable').checked = true;
   taxMode = 'percent';
+  setMoneyMode(document.getElementById('taxRate'), false);
   document.getElementById('taxRate').value = '6';
-  document.getElementById('taxRate').step = '0.1';
-  document.getElementById('taxRate').placeholder = '';
   document.getElementById('taxRmPrefix').style.display = 'none';
   document.getElementById('taxModeSwitch').querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === 'percent');
@@ -496,9 +543,8 @@ function resetAll(){
   // Reset Caj perkhidmatan ke default: OFF, mod %, 10%
   document.getElementById('scEnable').checked = false;
   scMode = 'percent';
+  setMoneyMode(document.getElementById('scRate'), false);
   document.getElementById('scRate').value = '10';
-  document.getElementById('scRate').step = '0.1';
-  document.getElementById('scRate').placeholder = '';
   document.getElementById('scRmPrefix').style.display = 'none';
   document.getElementById('scModeSwitch').querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === 'percent');
@@ -556,7 +602,7 @@ function renderPeople(){
           ? `<div class="desc-line"><input class="idesc" type="text" placeholder="Nasi Goreng/Teh Ais" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
           : `<button class="add-note" type="button">+ nama makanan/minuman</button>`}
         <div class="iline">
-          <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" value="${item.price}"></div>
+          <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="text" inputmode="numeric" data-money="1" autocomplete="off" placeholder="0.00" value="${item.price}"></div>
           <button class="rm-item" type="button" title="Buang item" ${p.items.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
         </div>
       `;
@@ -841,14 +887,11 @@ function setupModeSwitch(switchId, inputId, prefixId, defaultPercentValue, setMo
       const mode = btn.dataset.mode;
       setMode(mode);
       if(mode === 'percent'){
-        input.step = '0.1';
-        input.placeholder = '';
+        setMoneyMode(input, false);
         input.value = defaultPercentValue;
         prefix.style.display = 'none';
       } else {
-        input.step = '0.01';
-        input.placeholder = '0.00';
-        input.value = '';
+        setMoneyMode(input, true);
         prefix.style.display = '';
       }
       renderResults();
