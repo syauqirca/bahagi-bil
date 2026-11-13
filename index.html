@@ -463,32 +463,55 @@ let taxMode = 'percent';
 let scMode = 'percent';
 
 // ===== Input amaun gaya bank =====
-// Digit masuk dari belakang (sen): tekan 2 -> 0.02, tekan 4 -> 0.24, tekan 0 -> 2.40.
+// Digit masuk dari belakang (sen): tekan 2 -> 0.02, tekan 2 lagi -> 0.22, tekan 2 lagi -> 2.22.
 // Backspace buang digit terakhir. Hanya digit diterima, jadi nombor negatif/titik tak boleh ditaip.
+// Bila kotak ditekan, ia papar "0.00" dan kursor sentiasa kekal di HUJUNG (RM0.00|).
 function formatMoneyDigits(raw){
   let digits = String(raw).replace(/\D/g, '').replace(/^0+/, '');
   if(digits.length > 9) digits = digits.slice(0, 9);   // had RM9,999,999.99
-  if(digits === '') return '';
+  if(digits === '') return '0.00';
   digits = digits.padStart(3, '0');
   return digits.slice(0, -2) + '.' + digits.slice(-2);
+}
+function isMoneyInput(el){
+  return !!(el && el.dataset && el.dataset.money === '1');
 }
 function caretToEnd(el){
   try{ el.setSelectionRange(el.value.length, el.value.length); }catch(_){}
 }
+// Telefon kadang-kadang letak semula kursor SELEPAS event input habis, jadi letak
+// kursor di hujung banyak kali: serta-merta, selepas frame berikutnya, dan selepas timeout.
+function caretToEndSoon(el){
+  caretToEnd(el);
+  requestAnimationFrame(() => caretToEnd(el));
+  setTimeout(() => caretToEnd(el), 0);
+}
 // Capture phase: format dulu sebelum listener lain (renderResults dll) baca nilai input.
 document.addEventListener('input', e => {
   const el = e.target;
-  if(el && el.dataset && el.dataset.money === '1'){
-    const formatted = formatMoneyDigits(el.value);
-    if(el.value !== formatted) el.value = formatted;
-    caretToEnd(el);
-  }
+  if(!isMoneyInput(el)) return;
+  const formatted = formatMoneyDigits(el.value);
+  if(el.value !== formatted) el.value = formatted;
+  caretToEndSoon(el);
 }, true);
+// Bila kotak ditekan: kosong jadi "0.00" dan kursor terus ke hujung.
 document.addEventListener('focusin', e => {
   const el = e.target;
-  if(el && el.dataset && el.dataset.money === '1'){
-    setTimeout(() => caretToEnd(el), 0);
-  }
+  if(!isMoneyInput(el)) return;
+  if(el.value === '') el.value = '0.00';
+  caretToEndSoon(el);
+});
+// Bila keluar dari kotak: "0.00" dikosongkan balik supaya placeholder kelabu dipaparkan.
+document.addEventListener('focusout', e => {
+  const el = e.target;
+  if(isMoneyInput(el) && el.value === '0.00') el.value = '';
+});
+// Kalau pengguna tekan/seret di tengah nombor, kursor dipulangkan ke hujung.
+['click', 'mouseup', 'touchend', 'keyup', 'select'].forEach(type => {
+  document.addEventListener(type, e => {
+    const el = e.target;
+    if(isMoneyInput(el) && document.activeElement === el) caretToEndSoon(el);
+  }, true);
 });
 // Tukar kotak cukai/caj antara mod % (nombor biasa) dan mod RM (gaya bank).
 function setMoneyMode(input, on){
@@ -602,7 +625,7 @@ function renderPeople(){
           ? `<div class="desc-line"><input class="idesc" type="text" placeholder="Nasi Goreng/Teh Ais" value="${escapeHtml(item.desc)}"><button class="close-note" type="button" title="Tutup nama makanan/minuman">&#10005;</button></div>`
           : `<button class="add-note" type="button">+ nama makanan/minuman</button>`}
         <div class="iline">
-          <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="text" inputmode="numeric" data-money="1" autocomplete="off" placeholder="0.00" value="${item.price}"></div>
+          <div class="amt-wrap"><span class="cs">RM</span><input class="iprice" type="text" inputmode="numeric" data-money="1" autocomplete="off" placeholder="0.00" value="${item.price === '0.00' ? '' : item.price}"></div>
           <button class="rm-item" type="button" title="Buang item" ${p.items.length<=1?'style="visibility:hidden"':''}>&#10005;</button>
         </div>
       `;
